@@ -17,8 +17,6 @@ const authorize = async (interactive) => {
   });
 };
 
-let pageLoadingCompleted = false;
-
 const fetchData = async () => {
   const token = localStorage.getItem('token');
   const spreadsheetID = '1ilKRBtucJqQva6iJIXDZJTLlo9C-u1qW-xMYqJ_5_SE';
@@ -39,9 +37,18 @@ const fetchData = async () => {
   }
 };
 
+const resData = async () => {
+  const jsonUrl = chrome.runtime.getURL('UrlMatches.json');
+  const res = await fetch(jsonUrl);
+  return res.json();
+};
+
 chrome.tabs.onUpdated.addListener(async function (tabId, info, tab) {
-  var title = tab.title;
-  var url = tab.url;
+  const title = tab.title;
+  const url = tab.url;
+
+  const data = await resData();
+
   const match = {
     type: 'basic',
     title: 'Match found',
@@ -55,22 +62,10 @@ chrome.tabs.onUpdated.addListener(async function (tabId, info, tab) {
     message: 'Better luck next time',
     iconUrl: './images/get_started128.png',
   };
-
-  const condition =
-    !tab.url.includes('/feed?') &&
-    tab.url !== 'https://vk.com/feed' &&
-    tab.url !== 'https://vk.com/im' &&
-    tab.url !== 'https://vk.com/friends' &&
-    !tab.url.includes('vk.com/friends?') &&
-    tab.url !== 'https://vk.com/groups' &&
-    !tab.url.includes('vk.com/albums') &&
-    !tab.url.includes('vk.com/audios') &&
-    !tab.url.includes('vk.com/video') &&
-    !tab.url.includes('vk.com/bookmarks') &&
-    !tab.url.includes('vk.com/docs') &&
-    !tab.url.includes('vk.com/market') &&
-    !tab.url.includes('vk.com/worki') &&
-    !tab.url.includes('vk.com/apps');
+  const currentPlacement = url.replace('https://vk.com/', '');
+  const regExp = /[\w0-9a-zA-Z]+[^!%&?/@]/;
+  const regResult = regExp.exec(currentPlacement)[0];
+  const condition = Object.keys(data).includes(regResult);
 
   if (tab.url.includes('/vk.com/') && info.title) {
     await authorize();
@@ -88,7 +83,7 @@ chrome.tabs.onUpdated.addListener(async function (tabId, info, tab) {
     if (idMatches || nameMatches) {
       return chrome.notifications.create('Notification', match);
     }
-    if (condition && !idMatches && !nameMatches) {
+    if (!condition && !idMatches && !nameMatches) {
       return chrome.notifications.create('Notification', notMatch);
     }
   }
